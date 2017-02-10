@@ -18,7 +18,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/angkec/redux-pouchdb-plus.git"
+    "url": "git+https://github.com/daaain/redux-pouchdb-plus.git"
   },
   "keywords": [
     "redux",
@@ -43,14 +43,14 @@
     "timeout-then": "^1.0.0"
   },
   "peerDependencies": {
-    "pouchdb": "^6.1.1",
-    "immutable": "^3.7.6"
+    "immutable": "^3.8.1",
+    "pouchdb": "^6.1.2"
   },
   "dependencies": {
     "lodash.clonedeep": "^4.1.0",
     "lodash.isequal": "^4.0.0",
-    "node-uuid": "^1.4.7",
     "transit-immutable-js": "^0.5.2",
-    "transit-js": "^0.8.846"
+    "transit-js": "^0.8.846",
+    "uuid": "^3.0.0"
   }
 }

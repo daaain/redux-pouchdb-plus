@@ -1,4 +1,4 @@
-import uuid from 'node-uuid';
+import uuid from 'uuid';
 import equalDeep from 'lodash.isequal';
 import cloneDeep from 'lodash.clonedeep';
 import Immutable from 'immutable';
@@ -10,7 +10,7 @@ export { inSync } from './save.js';
 // A client hash to filter out local database changes (as those
 // may lead to several race conditions).
 // see also http://stackoverflow.com/questions/28280276/changes-filter-only-changes-from-other-db-instances
-const CLIENT_HASH = uuid.v1();
+const CLIENT_HASH = uuid.v4();
 
 const REINIT = '@@redux-pouchdb-plus/REINIT';
 const INIT = '@@redux-pouchdb-plus/INIT';
@@ -57,7 +57,8 @@ export const persistentReducer = (reducer, reducerOptions={}) => {
   let saveReducer;
   let currentState;
 
-  initializedReducers[reducer.name] = false;
+  const reducerNameGiven = reducerOptions.name || reducer.name;
+  initializedReducers[reducerNameGiven] = false;
 
   // call the provide (store only) callback as soon
   // as all persistent reducers are initialized
@@ -70,27 +71,27 @@ export const persistentReducer = (reducer, reducerOptions={}) => {
   // was initialized (loaded from or saved to the db)
   function onInit(state) {
     if (reducerOptions.onInit instanceof Function)
-      reducerOptions.onInit.call(null, reducer.name, state, store);
+      reducerOptions.onInit.call(null, reducerNameGiven, state, store);
     if (storeOptions.onInit instanceof Function)
-      storeOptions.onInit.call(null, reducer.name, state, store);
+      storeOptions.onInit.call(null, reducerNameGiven, state, store);
   }
 
   // call the provided callbacks when this reducer
   // was updated with data from the db
   function onUpdate(state) {
     if (reducerOptions.onUpdate instanceof Function)
-      reducerOptions.onUpdate.call(null, reducer.name, state, store);
+      reducerOptions.onUpdate.call(null, reducerNameGiven, state, store);
     if (storeOptions.onUpdate instanceof Function)
-      storeOptions.onUpdate.call(null, reducer.name, state, store);
+      storeOptions.onUpdate.call(null, reducerNameGiven, state, store);
   }
 
   // call the provided callbacks when the state
   // of this reducer was saved to the db
   function onSave(state) {
     if (reducerOptions.onSave instanceof Function)
-      reducerOptions.onSave.call(null, reducer.name, state, store);
+      reducerOptions.onSave.call(null, reducerNameGiven, state, store);
     if (storeOptions.onSave instanceof Function)
-      storeOptions.onSave.call(null, reducer.name, state, store);
+      storeOptions.onSave.call(null, reducerNameGiven, state, store);
   }
 
   // get the current db connector an initialize the state of this
@@ -104,24 +105,24 @@ export const persistentReducer = (reducer, reducerOptions={}) => {
       'You must at least provide one to the store or the reducer.';
 
     if (db instanceof Function)
-      db = db(reducer.name, store);
+      db = db(reducerNameGiven, store);
 
     saveReducer = save(db, CLIENT_HASH);
 
-    db.get(reducer.name).then(doc => {
+    db.get(reducerNameGiven).then(doc => {
       // set reducer state if there was an entry found in the db
       setReducer(doc);
     }).catch(err => {
       // save the reducer state if there was no entry in the db
       if (err.status === 404)
-        return saveReducer(reducer.name, toPouch(state)).then(() => {
+        return saveReducer(reducerNameGiven, toPouch(state)).then(() => {
           onSave(state);
         });
       else
         throw err;
     }).then(() => {
       // from here on the reducer was loaded from db or saved to db
-      initializedReducers[reducer.name] = true;
+      initializedReducers[reducerNameGiven] = true;
       onInit(currentState);
 
       let ready = true;
@@ -139,7 +140,7 @@ export const persistentReducer = (reducer, reducerOptions={}) => {
         include_docs: true,
         live: true,
         since: 'now',
-        doc_ids: [reducer.name]
+        doc_ids: [reducerNameGiven]
       }).on('change', change => {
         if (change.doc.localId !== CLIENT_HASH) {
           if (!change.doc.state)
@@ -204,13 +205,13 @@ export const persistentReducer = (reducer, reducerOptions={}) => {
         store = action.store;
         storeOptions = action.storeOptions;
       case REINIT:
-        if (!action.reducerName || action.reducerName === reducer.name) {
+        if (!action.reducerName || action.reducerName === reducerNameGiven) {
           reinitReducer(initialState);
           return currentState = initialState;
         }
         else return state;
       case SET_REDUCER:
-        if (action.reducer === reducer.name && action.state) {
+        if (action.reducer === reducerNameGiven && action.state) {
           currentState = reducer(action.state, action);
           onUpdate(currentState);
           return currentState
@@ -223,10 +224,10 @@ export const persistentReducer = (reducer, reducerOptions={}) => {
           immutable = isImmutable(initialState);
         }
 
-        const isInitialized = initializedReducers[reducer.name];
+        const isInitialized = initializedReducers[reducerNameGiven];
         if (isInitialized && !isEqual(nextState, currentState)) {
           currentState = nextState;
-          saveReducer(reducer.name, toPouch(currentState)).then(() => {
+          saveReducer(reducerNameGiven, toPouch(currentState)).then(() => {
             onSave(currentState);
           });
         }
